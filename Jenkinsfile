@@ -213,9 +213,9 @@ BUILDEOF
                         if echo "$SONAR_STATUS" | grep -q '"status":"UP"'; then
                             echo "SonarQube disponible - Ejecutando analisis real"
 
-                            # Instalacion automatica de herramientas (con sudo)
-                            sudo apt-get update -qq
-                            sudo apt-get install -y -qq wget unzip openjdk-17-jre-headless nodejs npm
+                            # Instalacion automatica de herramientas
+                            apt-get update -qq
+                            apt-get install -y -qq wget unzip openjdk-17-jre-headless nodejs npm
 
                             # Descarga SonarQube Scanner
                             wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
