@@ -56,11 +56,9 @@ pipeline {
                         # Copiar archivos del repositorio Teclado clonado
                         echo "Copiando archivos de la aplicacion Teclado desde repositorio"
                         # Copiar archivos específicos necesarios
-                        for file in *.html *.js *.md; do
-                            if [ -f "${WORKSPACE}/$file" ]; then
-                                cp "${WORKSPACE}/$file" ${WORKSPACE_APP}/
-                            fi
-                        done
+                        cp ${WORKSPACE}/*.html ${WORKSPACE_APP}/ 2>/dev/null || echo "No HTML files found"
+                        cp ${WORKSPACE}/*.js ${WORKSPACE_APP}/ 2>/dev/null || echo "No JS files found"
+                        cp ${WORKSPACE}/*.md ${WORKSPACE_APP}/ 2>/dev/null || echo "No MD files found"
                         if [ -d "${WORKSPACE}/css" ]; then
                             cp -r ${WORKSPACE}/css ${WORKSPACE_APP}/
                         fi
