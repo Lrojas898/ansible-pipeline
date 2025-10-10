@@ -262,12 +262,32 @@ EOF
                         echo "Archivos preparados para despliegue:"
                         ls -la
 
-                        # Crear tarball para transferencia
-                        tar -czf teclado-app.tar.gz *
+                        # Crear artifact con metadata para despliegue
+                        echo "Creando artifact de despliegue..."
+
+                        # Crear archivo de metadata del build
+                        cat > build-metadata.json << EOF
+{
+  "buildNumber": "${BUILD_NUMBER}",
+  "commit": "${GIT_COMMIT}",
+  "branch": "${GIT_BRANCH}",
+  "timestamp": "$(date -Iseconds)",
+  "jenkinsUrl": "${BUILD_URL}",
+  "repository": "${GIT_REPO}",
+  "buildStatus": "SUCCESS"
+}
+EOF
+
+                        # Crear tarball con nombre versionado
+                        ARTIFACT_NAME="teclado-app-build-${BUILD_NUMBER}-$(date +%Y%m%d).tar.gz"
+                        tar -czf \$ARTIFACT_NAME *
+
+                        echo "Artifact creado: \$ARTIFACT_NAME"
+                        ls -la \$ARTIFACT_NAME
 
                         # Simular despliegue a servidor nginx-machine
                         echo "Conectando con servidor Nginx en ${NGINX_VM_IP}..."
-                        echo "Transfiriendo archivos de aplicacion..."
+                        echo "Transfiriendo artifact: \$ARTIFACT_NAME"
                         echo "Reiniciando servicios web..."
                         echo "Despliegue completado exitosamente"
 
@@ -321,9 +341,30 @@ EOF
         }
         success {
             echo 'Pipeline ejecutado exitosamente'
+            // Archivar artifacts solo en builds exitosos
+            script {
+                sh '''
+                    echo "Archivando artifacts del build exitoso..."
+                    cd ${WORKSPACE_APP}
+                    if [ -f teclado-app-build-${BUILD_NUMBER}-*.tar.gz ]; then
+                        echo "Artifact encontrado para archivar"
+                        ls -la teclado-app-build-${BUILD_NUMBER}-*.tar.gz
+                    fi
+                '''
+            }
+            // Archivar artifacts en Jenkins
+            archiveArtifacts artifacts: 'tmp/teclado-app/teclado-app-build-*.tar.gz,tmp/teclado-app/build-metadata.json',
+                           fingerprint: true,
+                           allowEmptyArchive: false,
+                           caseSensitive: true
         }
         failure {
             echo 'Pipeline fallo'
+            // En caso de fallo, archivar logs para debugging
+            archiveArtifacts artifacts: 'tmp/teclado-app/**/*',
+                           fingerprint: false,
+                           allowEmptyArchive: true,
+                           caseSensitive: true
         }
     }
 }
