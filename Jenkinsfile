@@ -96,14 +96,15 @@ pipeline {
 
                             # Verificar si ya existe el div info, si no, agregarlo
                             if ! grep -q "build-info" index.html; then
-                                sed -i '/<body>/a\\
-                                <div class="build-info" style="background: #f8f9fa; padding: 10px; margin: 10px 0; border-left: 4px solid #28a745; border-radius: 4px;">\\
-                                    <p><strong>Build:</strong> #'${BUILD_NUMBER}'</p>\\
+                                TIMESTAMP=$(date)
+                                sed -i "/<body>/a\\
+                                <div class=\"build-info\" style=\"background: #f8f9fa; padding: 10px; margin: 10px 0; border-left: 4px solid #28a745; border-radius: 4px;\">\\
+                                    <p><strong>Build:</strong> #${BUILD_NUMBER}</p>\\
                                     <p><strong>Pipeline:</strong> Jenkins + SonarQube + Docker</p>\\
-                                    <p><strong>Commit:</strong> '${GIT_COMMIT}'</p>\\
-                                    <p><strong>Branch:</strong> '${GIT_BRANCH}'</p>\\
-                                    <p><strong>Timestamp:</strong> '$(date)'</p>\\
-                                </div>' index.html
+                                    <p><strong>Commit:</strong> ${GIT_COMMIT}</p>\\
+                                    <p><strong>Branch:</strong> ${GIT_BRANCH}</p>\\
+                                    <p><strong>Timestamp:</strong> $TIMESTAMP</p>\\
+                                </div>" index.html
                             fi
 
                             echo "Archivos del repositorio procesados exitosamente"
