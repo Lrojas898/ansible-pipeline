@@ -34,12 +34,6 @@ pipeline {
 
     stages {
         stage('Checkout') {
-            when {
-                anyOf {
-                    branch 'main'
-                    expression { env.GIT_BRANCH == 'main' }
-                }
-            }
             steps {
                 echo 'CHECKOUT - Obteniendo codigo del repositorio Teclado'
                 script {
@@ -80,12 +74,6 @@ pipeline {
         }
 
         stage('Build') {
-            when {
-                anyOf {
-                    branch 'main'
-                    expression { env.GIT_BRANCH == 'main' }
-                }
-            }
             steps {
                 echo 'BUILD - Construyendo aplicacion del Teclado Virtual'
                 script {
@@ -159,12 +147,6 @@ EOF
         }
 
         stage('Test') {
-            when {
-                anyOf {
-                    branch 'main'
-                    expression { env.GIT_BRANCH == 'main' }
-                }
-            }
             steps {
                 echo 'TEST - Ejecutando pruebas de la aplicacion'
                 script {
@@ -210,12 +192,6 @@ EOF
         }
 
         stage('Quality Analysis') {
-            when {
-                anyOf {
-                    branch 'main'
-                    expression { env.GIT_BRANCH == 'main' }
-                }
-            }
             steps {
                 echo 'QUALITY ANALYSIS - Analisis con SonarQube'
                 script {
@@ -267,12 +243,6 @@ EOF
         }
 
         stage('Deploy') {
-            when {
-                anyOf {
-                    branch 'main'
-                    expression { env.GIT_BRANCH == 'main' }
-                }
-            }
             steps {
                 echo 'DEPLOY - Desplegando a servidor Nginx'
                 script {
@@ -303,12 +273,6 @@ EOF
         }
 
         stage('Health Check') {
-            when {
-                anyOf {
-                    branch 'main'
-                    expression { env.GIT_BRANCH == 'main' }
-                }
-            }
             steps {
                 echo 'HEALTH CHECK - Verificando aplicacion desplegada'
                 script {
