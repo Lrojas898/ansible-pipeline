@@ -113,21 +113,19 @@ pipeline {
                             echo "Ejecutando fallback - generando archivos basicos"
 
                             # Fallback: crear archivos minimos si no se encuentran
-                            cat > index.html << 'EOF'
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Teclado Virtual - Fallback Build</title>
-    <link rel="stylesheet" href="css/style.css">
-</head>
-<body>
-    <h1>Teclado Virtual - Modo Fallback</h1>
-    <p>Build: ${BUILD_NUMBER}</p>
-    <script src="script.js"></script>
-</body>
-</html>
-EOF
+                            echo '<!DOCTYPE html>' > index.html
+                            echo '<html lang="es">' >> index.html
+                            echo '<head>' >> index.html
+                            echo '    <meta charset="UTF-8">' >> index.html
+                            echo '    <title>Teclado Virtual - Fallback Build</title>' >> index.html
+                            echo '    <link rel="stylesheet" href="css/style.css">' >> index.html
+                            echo '</head>' >> index.html
+                            echo '<body>' >> index.html
+                            echo '    <h1>Teclado Virtual - Modo Fallback</h1>' >> index.html
+                            echo "    <p>Build: \${BUILD_NUMBER}</p>" >> index.html
+                            echo '    <script src="script.js"></script>' >> index.html
+                            echo '</body>' >> index.html
+                            echo '</html>' >> index.html
 
                             mkdir -p css
                             echo "body { font-family: Arial; padding: 20px; }" > css/style.css
