@@ -34,6 +34,12 @@ pipeline {
 
     stages {
         stage('Checkout') {
+            when {
+                anyOf {
+                    branch 'main'
+                    expression { env.GIT_BRANCH == 'main' }
+                }
+            }
             steps {
                 echo 'CHECKOUT - Obteniendo codigo del repositorio Teclado'
                 script {
@@ -55,10 +61,8 @@ pipeline {
 
                         # Copiar archivos del repositorio Teclado clonado
                         echo "Copiando archivos de la aplicacion Teclado desde repositorio"
-                        # Copiar archivos específicos necesarios
-                        cp ${WORKSPACE}/*.html ${WORKSPACE_APP}/ 2>/dev/null || echo "No HTML files found"
-                        cp ${WORKSPACE}/*.js ${WORKSPACE_APP}/ 2>/dev/null || echo "No JS files found"
-                        cp ${WORKSPACE}/*.md ${WORKSPACE_APP}/ 2>/dev/null || echo "No MD files found"
+                        # Excluir .git y archivos ocultos innecesarios
+                        find ${WORKSPACE} -maxdepth 1 -type f -exec cp {} ${WORKSPACE_APP}/ \;
                         if [ -d "${WORKSPACE}/css" ]; then
                             cp -r ${WORKSPACE}/css ${WORKSPACE_APP}/
                         fi
@@ -72,6 +76,12 @@ pipeline {
         }
 
         stage('Build') {
+            when {
+                anyOf {
+                    branch 'main'
+                    expression { env.GIT_BRANCH == 'main' }
+                }
+            }
             steps {
                 echo 'BUILD - Construyendo aplicacion del Teclado Virtual'
                 script {
@@ -94,26 +104,14 @@ pipeline {
 
                             # Verificar si ya existe el div info, si no, agregarlo
                             if ! grep -q "build-info" index.html; then
-                                echo "Agregando informacion de build al HTML"
-                                TIMESTAMP=\$(date)
-                                # Crear archivo temporal con el contenido a insertar
-                                cat > build_info.tmp << 'BUILDEOF'
-<div class="build-info" style="background: #f8f9fa; padding: 10px; margin: 10px 0; border-left: 4px solid #28a745; border-radius: 4px;">
-    <p><strong>Build:</strong> #BUILD_NUM_PLACEHOLDER</p>
-    <p><strong>Pipeline:</strong> Jenkins + SonarQube + Docker</p>
-    <p><strong>Commit:</strong> COMMIT_PLACEHOLDER</p>
-    <p><strong>Branch:</strong> BRANCH_PLACEHOLDER</p>
-    <p><strong>Timestamp:</strong> TIMESTAMP_PLACEHOLDER</p>
-</div>
-BUILDEOF
-                                # Reemplazar placeholders
-                                sed -i "s/BUILD_NUM_PLACEHOLDER/\${BUILD_NUMBER}/g" build_info.tmp
-                                sed -i "s/COMMIT_PLACEHOLDER/\${GIT_COMMIT}/g" build_info.tmp
-                                sed -i "s/BRANCH_PLACEHOLDER/\${GIT_BRANCH}/g" build_info.tmp
-                                sed -i "s/TIMESTAMP_PLACEHOLDER/\$TIMESTAMP/g" build_info.tmp
-                                # Insertar en el HTML
-                                sed -i '/<body>/r build_info.tmp' index.html
-                                rm build_info.tmp
+                                sed -i '/<body>/a\\
+                                <div class="build-info" style="background: #f8f9fa; padding: 10px; margin: 10px 0; border-left: 4px solid #28a745; border-radius: 4px;">\\
+                                    <p><strong>Build:</strong> #'${BUILD_NUMBER}'</p>\\
+                                    <p><strong>Pipeline:</strong> Jenkins + SonarQube + Docker</p>\\
+                                    <p><strong>Commit:</strong> '${GIT_COMMIT}'</p>\\
+                                    <p><strong>Branch:</strong> '${GIT_BRANCH}'</p>\\
+                                    <p><strong>Timestamp:</strong> '$(date)'</p>\\
+                                </div>' index.html
                             fi
 
                             echo "Archivos del repositorio procesados exitosamente"
@@ -122,19 +120,21 @@ BUILDEOF
                             echo "Ejecutando fallback - generando archivos basicos"
 
                             # Fallback: crear archivos minimos si no se encuentran
-                            echo '<!DOCTYPE html>' > index.html
-                            echo '<html lang="es">' >> index.html
-                            echo '<head>' >> index.html
-                            echo '    <meta charset="UTF-8">' >> index.html
-                            echo '    <title>Teclado Virtual - Fallback Build</title>' >> index.html
-                            echo '    <link rel="stylesheet" href="css/style.css">' >> index.html
-                            echo '</head>' >> index.html
-                            echo '<body>' >> index.html
-                            echo '    <h1>Teclado Virtual - Modo Fallback</h1>' >> index.html
-                            echo "    <p>Build: \${BUILD_NUMBER}</p>" >> index.html
-                            echo '    <script src="script.js"></script>' >> index.html
-                            echo '</body>' >> index.html
-                            echo '</html>' >> index.html
+                            cat > index.html << 'EOF'
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Teclado Virtual - Fallback Build</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <h1>Teclado Virtual - Modo Fallback</h1>
+    <p>Build: ${BUILD_NUMBER}</p>
+    <script src="script.js"></script>
+</body>
+</html>
+EOF
 
                             mkdir -p css
                             echo "body { font-family: Arial; padding: 20px; }" > css/style.css
@@ -155,6 +155,12 @@ BUILDEOF
         }
 
         stage('Test') {
+            when {
+                anyOf {
+                    branch 'main'
+                    expression { env.GIT_BRANCH == 'main' }
+                }
+            }
             steps {
                 echo 'TEST - Ejecutando pruebas de la aplicacion'
                 script {
@@ -200,6 +206,12 @@ BUILDEOF
         }
 
         stage('Quality Analysis') {
+            when {
+                anyOf {
+                    branch 'main'
+                    expression { env.GIT_BRANCH == 'main' }
+                }
+            }
             steps {
                 echo 'QUALITY ANALYSIS - Analisis con SonarQube'
                 script {
@@ -213,9 +225,9 @@ BUILDEOF
                         if echo "$SONAR_STATUS" | grep -q '"status":"UP"'; then
                             echo "SonarQube disponible - Ejecutando analisis real"
 
-                            # Instalacion automatica de herramientas
-                            apt-get update -qq
-                            apt-get install -y -qq wget unzip openjdk-17-jre-headless nodejs npm
+                            # Instalacion automatica de herramientas (con sudo)
+                            sudo apt-get update -qq
+                            sudo apt-get install -y -qq wget unzip openjdk-17-jre-headless nodejs npm
 
                             # Descarga SonarQube Scanner
                             wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
@@ -251,6 +263,12 @@ EOF
         }
 
         stage('Deploy') {
+            when {
+                anyOf {
+                    branch 'main'
+                    expression { env.GIT_BRANCH == 'main' }
+                }
+            }
             steps {
                 echo 'DEPLOY - Desplegando a servidor Nginx'
                 script {
@@ -262,32 +280,12 @@ EOF
                         echo "Archivos preparados para despliegue:"
                         ls -la
 
-                        # Crear artifact con metadata para despliegue
-                        echo "Creando artifact de despliegue..."
-
-                        # Crear archivo de metadata del build
-                        cat > build-metadata.json << EOF
-{
-  "buildNumber": "${BUILD_NUMBER}",
-  "commit": "${GIT_COMMIT}",
-  "branch": "${GIT_BRANCH}",
-  "timestamp": "$(date -Iseconds)",
-  "jenkinsUrl": "${BUILD_URL}",
-  "repository": "${GIT_REPO}",
-  "buildStatus": "SUCCESS"
-}
-EOF
-
-                        # Crear tarball con nombre versionado
-                        ARTIFACT_NAME="teclado-app-build-${BUILD_NUMBER}-$(date +%Y%m%d).tar.gz"
-                        tar -czf \$ARTIFACT_NAME *
-
-                        echo "Artifact creado: \$ARTIFACT_NAME"
-                        ls -la \$ARTIFACT_NAME
+                        # Crear tarball para transferencia
+                        tar -czf teclado-app.tar.gz *
 
                         # Simular despliegue a servidor nginx-machine
                         echo "Conectando con servidor Nginx en ${NGINX_VM_IP}..."
-                        echo "Transfiriendo artifact: \$ARTIFACT_NAME"
+                        echo "Transfiriendo archivos de aplicacion..."
                         echo "Reiniciando servicios web..."
                         echo "Despliegue completado exitosamente"
 
@@ -301,6 +299,12 @@ EOF
         }
 
         stage('Health Check') {
+            when {
+                anyOf {
+                    branch 'main'
+                    expression { env.GIT_BRANCH == 'main' }
+                }
+            }
             steps {
                 echo 'HEALTH CHECK - Verificando aplicacion desplegada'
                 script {
@@ -341,30 +345,9 @@ EOF
         }
         success {
             echo 'Pipeline ejecutado exitosamente'
-            // Archivar artifacts solo en builds exitosos
-            script {
-                sh '''
-                    echo "Archivando artifacts del build exitoso..."
-                    cd ${WORKSPACE_APP}
-                    if [ -f teclado-app-build-${BUILD_NUMBER}-*.tar.gz ]; then
-                        echo "Artifact encontrado para archivar"
-                        ls -la teclado-app-build-${BUILD_NUMBER}-*.tar.gz
-                    fi
-                '''
-            }
-            // Archivar artifacts en Jenkins
-            archiveArtifacts artifacts: 'tmp/teclado-app/teclado-app-build-*.tar.gz,tmp/teclado-app/build-metadata.json',
-                           fingerprint: true,
-                           allowEmptyArchive: false,
-                           caseSensitive: true
         }
         failure {
             echo 'Pipeline fallo'
-            // En caso de fallo, archivar logs para debugging
-            archiveArtifacts artifacts: 'tmp/teclado-app/**/*',
-                           fingerprint: false,
-                           allowEmptyArchive: true,
-                           caseSensitive: true
         }
     }
 }
