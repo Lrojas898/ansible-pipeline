@@ -1,116 +1,98 @@
 ---
-- name: Instalar y configurar Nginx
-  hosts: nginx
+# CORREGIDO: Nginx ahora se maneja via Docker Compose, no instalación nativa
+# El objetivo es que Nginx esté en contenedor Docker según requerimientos del taller
+
+- name: Configurar servidor Jenkins con Docker
+  hosts: jenkins_servers
   become: true
+
   tasks:
     - name: Actualizar cache de paquetes
       apt:
         update_cache: yes
 
-    - name: Instalar Nginx
-      apt:
-        name: nginx
-        state: present
-
-    - name: Iniciar servicio Nginx
-      systemd:
-        name: nginx
-        state: started
-        enabled: yes
-
-    - name: Cambiar propietario de /var/www/html
-      file:
-        path: /var/www/html
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        recurse: yes
-
-- name: Instalación de Docker y Docker Compose en Ubuntu
-  hosts: jenkins
-  become: true
-  
-  tasks:
-    # Actualizar el cache de paquetes
-    - name: Actualizar el cache de paquetes
-      apt:
-        update_cache: yes
-
-    # Instalar dependencias para Docker
     - name: Instalar dependencias para Docker
       apt:
-        name: 
+        name:
           - apt-transport-https
           - ca-certificates
           - curl
           - gnupg-agent
           - software-properties-common
 
-    # Agregar la clave GPG oficial de Docker
     - name: Agregar la clave GPG oficial de Docker
       apt_key:
         url: https://download.docker.com/linux/ubuntu/gpg
         state: present
 
-    # Agregar el repositorio de Docker al sources.list.d
-    - name: Agregar el repositorio de Docker al sources.list.d
+    - name: Agregar el repositorio de Docker
       apt_repository:
         repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename }} stable
         state: present
 
-    # Actualizar el cache de paquetes de nuevo (para que encuentre el paquete de Docker)
-    - name: Actualizar el cache de paquetes de nuevo (para que encuentre el paquete de Docker)
+    - name: Actualizar cache después de agregar repositorio
       apt:
         update_cache: yes
 
-    # Instalar Docker
     - name: Instalar Docker
       apt:
         name: docker-ce
         state: present
 
-    # Añadir el usuario actual al grupo de Docker
-    - name: Añadir el usuario actual al grupo de Docker
+    - name: Añadir usuario al grupo Docker
       user:
         name: "{{ ansible_user }}"
         groups: docker
         append: yes
 
-    # Instalar Docker Compose
     - name: Instalar Docker Compose
       shell: |
-        curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        curl -L "https://github.com/docker/compose/releases/download/2.21.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
         chmod +x /usr/local/bin/docker-compose
       args:
         creates: /usr/local/bin/docker-compose
-    
-    - name: Establecer vm.max_map_count en el kernel
+
+    - name: Establecer vm.max_map_count para SonarQube
       sysctl:
         name: vm.max_map_count
         value: "262144"
         state: present
         reload: yes
-    
-    - name: Copiar archivo de configuración de Nginx
+
+    - name: Crear directorio para configuración
+      file:
+        path: /home/{{ ansible_user }}/docker-devops
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Copiar docker-compose.yml
       copy:
         src: docker-compose.yml
-        dest: /home/{{ ansible_user }}/docker-compose.yml
+        dest: /home/{{ ansible_user }}/docker-devops/docker-compose.yml
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
 
-    # Ejecutar un archivo docker-compose.yml
-    - name: Ejecutar docker-compose.yml
-      command: docker-compose up -d
-      args:
-        chdir: /home/{{ ansible_user }}/
+    - name: Copiar configuración nginx
+      copy:
+        src: nginx.conf
+        dest: /home/{{ ansible_user }}/docker-devops/nginx.conf
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Iniciar servicios con docker-compose
+      docker_compose:
+        project_src: /home/{{ ansible_user }}/docker-devops
+        state: present
       become_user: "{{ ansible_user }}"
       become_method: su
 
-    - name: Instalar plugins jenkins
-      command: docker exec -it jenkins jenkins-plugin-cli --plugin-file /plugins.txt
+    - name: Esperar que Jenkins esté disponible
+      uri:
+        url: http://localhost:8080
+        method: GET
+      register: jenkins_response
+      until: jenkins_response.status == 200
+      retries: 30
+      delay: 10
       become_user: "{{ ansible_user }}"
-      become_method: su
-      notify: restart jenkins
-
-  handlers:
-    - name: restart jenkins
-      command: sudo docker restart jenkins
-      become_user: "{{ ansible_user }}"
-      become_method: su

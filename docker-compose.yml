@@ -11,14 +11,13 @@ services:
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
     user: root
     ports:
-      - "80:8080"
+      - "8080:8080"
       - "8443:8443"
       - "50000:50000"
-    expose:
-      - "8080"
     volumes:
       - jenkins-data:/var/jenkins_home
       - jenkins-home:/home
+      - /var/run/docker.sock:/var/run/docker.sock
 
   sonarqube:
     image: sonarqube:10.3-community
@@ -35,9 +34,22 @@ services:
       - sonarqube_extensions:/opt/sonarqube/extensions
     restart: unless-stopped
 
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    ports:
+      - "80:80"
+    volumes:
+      - nginx-html:/usr/share/nginx/html
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    restart: unless-stopped
+    depends_on:
+      - jenkins
+
 volumes:
   jenkins-data: {}
   jenkins-home: {}
   sonarqube_data:
   sonarqube_logs:
   sonarqube_extensions:
+  nginx-html:
