@@ -94,15 +94,26 @@ pipeline {
 
                             # Verificar si ya existe el div info, si no, agregarlo
                             if ! grep -q "build-info" index.html; then
-                                TIMESTAMP=$(date)
-                                sed -i "/<body>/a\\
-                                <div class=\"build-info\" style=\"background: #f8f9fa; padding: 10px; margin: 10px 0; border-left: 4px solid #28a745; border-radius: 4px;\">\\
-                                    <p><strong>Build:</strong> #${BUILD_NUMBER}</p>\\
-                                    <p><strong>Pipeline:</strong> Jenkins + SonarQube + Docker</p>\\
-                                    <p><strong>Commit:</strong> ${GIT_COMMIT}</p>\\
-                                    <p><strong>Branch:</strong> ${GIT_BRANCH}</p>\\
-                                    <p><strong>Timestamp:</strong> $TIMESTAMP</p>\\
-                                </div>" index.html
+                                echo "Agregando informacion de build al HTML"
+                                TIMESTAMP=\$(date)
+                                # Crear archivo temporal con el contenido a insertar
+                                cat > build_info.tmp << 'BUILDEOF'
+<div class="build-info" style="background: #f8f9fa; padding: 10px; margin: 10px 0; border-left: 4px solid #28a745; border-radius: 4px;">
+    <p><strong>Build:</strong> #BUILD_NUM_PLACEHOLDER</p>
+    <p><strong>Pipeline:</strong> Jenkins + SonarQube + Docker</p>
+    <p><strong>Commit:</strong> COMMIT_PLACEHOLDER</p>
+    <p><strong>Branch:</strong> BRANCH_PLACEHOLDER</p>
+    <p><strong>Timestamp:</strong> TIMESTAMP_PLACEHOLDER</p>
+</div>
+BUILDEOF
+                                # Reemplazar placeholders
+                                sed -i "s/BUILD_NUM_PLACEHOLDER/\${BUILD_NUMBER}/g" build_info.tmp
+                                sed -i "s/COMMIT_PLACEHOLDER/\${GIT_COMMIT}/g" build_info.tmp
+                                sed -i "s/BRANCH_PLACEHOLDER/\${GIT_BRANCH}/g" build_info.tmp
+                                sed -i "s/TIMESTAMP_PLACEHOLDER/\$TIMESTAMP/g" build_info.tmp
+                                # Insertar en el HTML
+                                sed -i '/<body>/r build_info.tmp' index.html
+                                rm build_info.tmp
                             fi
 
                             echo "Archivos del repositorio procesados exitosamente"
