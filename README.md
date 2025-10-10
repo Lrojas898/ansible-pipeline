@@ -1,20 +1,20 @@
-# Ansible Pipeline - Configuración CI/CD y Automatización
+# Pipeline CI/CD y Automatización
 
 **Autor**: LUIS MANUEL ROJAS CORREA
 **Código**: A00399289
 
 ## Descripción
 
-Este repositorio contiene toda la configuración necesaria para implementar un pipeline CI/CD completo con Jenkins, SonarQube y automatización de despliegues usando Ansible. Incluye el pipeline principal de Jenkins, configuraciones Docker, scripts de ejecución manual y playbooks de Ansible para la gestión de configuración de servidores.
+Configuración completa de pipeline CI/CD con Jenkins, SonarQube y automatización de despliegues con Ansible. Incluye pipeline Jenkins, configuraciones Docker, scripts de ejecución y playbooks Ansible.
 
-## Arquitectura del Pipeline
+## Arquitectura
 
-### Componentes Principales
+### Componentes
 
-1. **Jenkins CI/CD Server**: Orquestador principal del pipeline
-2. **SonarQube Quality Gate**: Análisis de calidad de código
-3. **Ansible Configuration Management**: Automatización de configuración de servidores
-4. **Docker Compose Services**: Orquestación de contenedores
+1. **Jenkins**: Orquestador del pipeline
+2. **SonarQube**: Análisis de calidad de código
+3. **Ansible**: Automatización de configuración
+4. **Docker Compose**: Orquestación de contenedores
 
 ### Flujo del Pipeline
 
@@ -75,9 +75,7 @@ stage('Build') {
     }
 }
 ```
-**Propósito**: Construye la aplicación creando archivos dinámicamente
-**Archivos generados**: index.html, script.js, css/style.css
-**Duración promedio**: 3-4 segundos
+Construye la aplicación creando archivos dinámicamente (index.html, script.js, css/style.css). Duración: 3-4 segundos.
 
 ### Stage 3: Test
 ```groovy
@@ -98,9 +96,7 @@ stage('Test') {
     }
 }
 ```
-**Propósito**: Ejecuta validaciones automatizadas de la aplicación
-**Validaciones**: Existencia de archivos, sintaxis HTML, presencia de CSS y JS
-**Duración promedio**: 2-3 segundos
+Ejecuta validaciones automatizadas (existencia de archivos, sintaxis HTML, presencia de CSS y JS). Duración: 2-3 segundos.
 
 ### Stage 4: Quality Analysis (SonarQube)
 ```groovy
