@@ -149,7 +149,8 @@ Porcentaje éxito: 100%
 
 ### Stage 4: Quality Analysis
 
-<img width="1915" height="966" alt="image" src="https://github.com/user-attachments/assets/3132937d-f768-44d6-a342-c48d15472de5" />
+<img width="1912" height="1038" alt="image" src="https://github.com/user-attachments/assets/11b305d1-9158-43c1-b3dd-15681b335e10" />
+
 
 **Propósito**: Análisis con SonarQube Scanner
 
