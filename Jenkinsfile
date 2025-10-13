@@ -38,6 +38,7 @@ pipeline {
                 anyOf {
                     branch 'main'
                     expression { env.GIT_BRANCH == 'main' }
+                    expression { env.ref == 'refs/heads/main' }
                 }
             }
             steps {
@@ -80,6 +81,7 @@ pipeline {
                 anyOf {
                     branch 'main'
                     expression { env.GIT_BRANCH == 'main' }
+                    expression { env.ref == 'refs/heads/main' }
                 }
             }
             steps {
@@ -159,6 +161,7 @@ EOF
                 anyOf {
                     branch 'main'
                     expression { env.GIT_BRANCH == 'main' }
+                    expression { env.ref == 'refs/heads/main' }
                 }
             }
             steps {
@@ -210,6 +213,7 @@ EOF
                 anyOf {
                     branch 'main'
                     expression { env.GIT_BRANCH == 'main' }
+                    expression { env.ref == 'refs/heads/main' }
                 }
             }
             steps {
@@ -267,6 +271,7 @@ EOF
                 anyOf {
                     branch 'main'
                     expression { env.GIT_BRANCH == 'main' }
+                    expression { env.ref == 'refs/heads/main' }
                 }
             }
             steps {
@@ -303,6 +308,7 @@ EOF
                 anyOf {
                     branch 'main'
                     expression { env.GIT_BRANCH == 'main' }
+                    expression { env.ref == 'refs/heads/main' }
                 }
             }
             steps {
