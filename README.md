@@ -1,491 +1,433 @@
-# Pipeline CI/CD y Automatización
+# Pipeline CI/CD - Jenkins con SonarQube
 
 **Autor**: LUIS MANUEL ROJAS CORREA
 **Código**: A00399289
 
 ## Descripción
 
-Configuración completa de pipeline CI/CD con Jenkins, SonarQube y automatización de despliegues con Ansible. Incluye pipeline Jenkins, configuraciones Docker, scripts de ejecución y playbooks Ansible.
+Pipeline CI/CD completo que integra Jenkins con SonarQube para el análisis automatizado y despliegue de la aplicación Teclado Virtual. Implementa procesos reales de construcción, pruebas, análisis de calidad y despliegue a servidor nginx.
 
-## Arquitectura
+## Arquitectura del Sistema
 
-### Componentes
+### Componentes Principales
 
-1. **Jenkins**: Orquestador del pipeline
-2. **SonarQube**: Análisis de calidad de código
-3. **Ansible**: Automatización de configuración
-4. **Docker Compose**: Orquestación de contenedores
+1. **Jenkins Server** (68.211.125.173)
+   - Orquestador del pipeline CI/CD
+   - Puerto 80 para interfaz web
+   - Ejecuta en contenedor Docker
+
+2. **SonarQube Server** (68.211.125.173:9000)
+   - Análisis de calidad de código
+   - Quality Gate automatizado
+   - Base de datos H2 embedded
+
+3. **Nginx Server** (68.211.125.160)
+   - Servidor web de producción
+   - Destino del despliegue
+   - Configurado con SSH para automatización
 
 ### Flujo del Pipeline
 
 ```
-Checkout → Build → Test → Quality Analysis → Deploy → Health Check
-    ↓         ↓       ↓           ↓            ↓         ↓
- Git Repo  → App   → Unit    → SonarQube  → Nginx   → Verification
-          Creation  Tests      Analysis    Server
+Trigger (Push to main) → Checkout → Build → Test → Quality Analysis → Deploy → Health Check
+        ↓                  ↓        ↓       ↓           ↓            ↓         ↓
+    Git Poll           Real Git   Process  5 Tests   SonarQube     SSH       HTTP
+   (2 minutes)         Clone      Files    Validate   Scanner      Copy      Verify
 ```
 
-## Estructura del Proyecto
+## Estructura del Repositorio
 
 ```
 ansible-pipeline/
-├── Jenkinsfile                 # Pipeline principal CI/CD (6 stages)
-├── docker-compose.yml          # Configuración Jenkins + SonarQube
-├── playbook.yml               # Playbook principal de Ansible
-├── inventory.ini              # Inventario de servidores
-├── nginx.conf                 # Configuración del servidor Nginx
-└── README.md                  # Esta documentación
+├── Jenkinsfile                 # Pipeline principal (6 stages)
+├── docker-compose.yml          # Jenkins + SonarQube containers
+├── playbook.yml               # Ansible automation
+├── inventory.ini              # Server inventory
+├── nginx.conf                 # Nginx configuration
+├── requirements.txt           # Python dependencies
+├── run_pipeline_manually.sh   # Manual execution script
+└── README.md                  # Este archivo
 ```
 
-## Pipeline Jenkins - 6 Stages Implementados
+## Pipeline Jenkins - Implementación Real
+
+### Configuración del Pipeline
+
+El pipeline se activa automáticamente mediante polling SCM cada 2 minutos:
+
+```groovy
+triggers {
+    pollSCM('H/2 * * * *')
+}
+```
+
+### Variables de Entorno
+
+```groovy
+environment {
+    SONAR_HOST_URL = 'http://68.211.125.173:9000'
+    SONAR_TOKEN = 'sqa_461deb36c6a6df74233a1aa4b3ab01cd9714af56'
+    NGINX_VM_IP = '68.211.125.160'
+    NGINX_USER = 'adminuser'
+    NGINX_PASSWORD = 'DevOps2024!@#'
+    WORKSPACE_APP = "/tmp/teclado-app-${BUILD_NUMBER}"
+    DEPLOY_DIR = '/var/www/html'
+    APP_VERSION = "v1.0.${BUILD_NUMBER}"
+}
+```
 
 ### Stage 1: Checkout
+
+**Propósito**: Clonar repositorio Teclado desde GitHub
+
 ```groovy
-stage('Checkout') {
-    steps {
-        echo 'CHECKOUT - Obteniendo código del repositorio Teclado'
-        script {
-            sh '''
-                echo "Clonando repositorio de la aplicación Teclado"
-                rm -rf ${WORKSPACE_APP}
-                mkdir -p ${WORKSPACE_APP}/css
-                echo "Código fuente obtenido exitosamente"
-            '''
-        }
-    }
-}
+checkout([$class: 'GitSCM',
+    branches: [[name: '*/main']],
+    userRemoteConfigs: [[url: 'https://github.com/Lrojas898/Teclado.git']],
+    extensions: [[$class: 'CleanBeforeCheckout']]
+])
 ```
-**Propósito**: Simula la obtención del código fuente desde Git
-**Duración promedio**: 2-3 segundos
+
+**Proceso**:
+- Clonación real del repositorio https://github.com/Lrojas898/Teclado.git
+- Limpieza automática antes del checkout
+- Información detallada de commit, autor y mensaje
+- Copia de archivos a workspace temporal
+
+**Duración**: 3-5 segundos
 
 ### Stage 2: Build
-```groovy
-stage('Build') {
-    steps {
-        echo 'BUILD - Construyendo aplicación del Teclado Virtual'
-        script {
-            sh '''
-                cd ${WORKSPACE_APP}
-                # Creación dinámica de archivos HTML, CSS y JavaScript
-                cat > index.html << 'EOF'
-                # ... contenido HTML completo ...
-                EOF
-            '''
-        }
-    }
+
+**Propósito**: Procesar archivos de la aplicación e inyectar información de build
+
+**Proceso**:
+- Verificación de archivos fuente (index.html, script.js, css/)
+- Creación de backups de archivos originales
+- Inyección de información de build en HTML
+- Minificación de CSS
+- Generación de build-manifest.json
+
+**Archivo generado**:
+```json
+{
+    "version": "v1.0.26",
+    "build_number": "26",
+    "build_timestamp": "2025-10-13_12:30:31",
+    "pipeline": "jenkins",
+    "environment": "production"
 }
 ```
-Construye la aplicación creando archivos dinámicamente (index.html, script.js, css/style.css). Duración: 3-4 segundos.
+
+**Duración**: 4-6 segundos
 
 ### Stage 3: Test
-```groovy
-stage('Test') {
-    steps {
-        echo 'TEST - Ejecutando pruebas de la aplicación'
-        script {
-            sh '''
-                # Validación de estructura de archivos
-                if [ -f "index.html" ] && [ -f "script.js" ] && [ -f "css/style.css" ]; then
-                    echo "✓ Estructura de archivos correcta"
-                else
-                    echo "✗ Faltan archivos requeridos"
-                    exit 1
-                fi
-            '''
-        }
-    }
-}
+
+**Propósito**: Ejecutar 5 tests funcionales automatizados
+
+**Tests implementados**:
+1. **Estructura de archivos**: Verificación de index.html, script.js, css/style.css
+2. **Validación HTML**: DOCTYPE, charset, title, enlaces CSS/JS
+3. **Validación CSS**: Sintaxis básica con llaves de apertura/cierre
+4. **Validación JavaScript**: Presencia de código funcional
+5. **Información de build**: Verificación de metadata inyectada
+
+**Salida**:
 ```
-Ejecuta validaciones automatizadas (existencia de archivos, sintaxis HTML, presencia de CSS y JS). Duración: 2-3 segundos.
+Tests ejecutados: 5
+Tests exitosos: 5
+Porcentaje éxito: 100%
+```
 
-### Stage 4: Quality Analysis (SonarQube)
-```groovy
-stage('Quality Analysis') {
-    steps {
-        echo 'QUALITY ANALYSIS - Análisis con SonarQube'
-        script {
-            sh '''
-                # Verificación de conectividad SonarQube
-                SONAR_STATUS=$(curl -s ${SONAR_HOST_URL}/api/system/status)
+**Criterio de fallo**: Pipeline se detiene si cualquier test falla
+**Duración**: 3-4 segundos
 
-                if echo "$SONAR_STATUS" | grep -q '"status":"UP"'; then
-                    echo "SonarQube disponible - Ejecutando análisis real"
+### Stage 4: Quality Analysis
 
-                    # Instalación automática de herramientas
-                    apt-get update -qq
-                    apt-get install -y -qq wget unzip openjdk-17-jre-headless nodejs npm
+**Propósito**: Análisis real con SonarQube Scanner
 
-                    # Descarga SonarQube Scanner
-                    wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
-                    unzip -q sonar-scanner-cli-5.0.1.3006-linux.zip
-                    export PATH=$(pwd)/sonar-scanner-5.0.1.3006-linux/bin:$PATH
+**Proceso**:
+1. Verificación HTTP de conectividad con SonarQube
+2. Instalación automática de herramientas (wget, unzip, openjdk-17)
+3. Descarga de SonarQube Scanner 5.0.1.3006
+4. Configuración automática del proyecto
+5. Ejecución del análisis
+6. Verificación del Quality Gate
 
-                    # Configuración automática del proyecto
-                    cat > sonar-project.properties << EOF
-sonar.projectKey=teclado-virtual
-sonar.projectName=Teclado Virtual Pipeline
-sonar.projectVersion=1.0
+**Configuración SonarQube**:
+```properties
+sonar.projectKey=teclado-virtual-pipeline
+sonar.projectName=Teclado Virtual - Pipeline Real
+sonar.projectVersion=v1.0.${BUILD_NUMBER}
 sonar.sources=.
 sonar.inclusions=**/*.html,**/*.js,**/*.css
-sonar.sourceEncoding=UTF-8
-sonar.host.url=${SONAR_HOST_URL}
-sonar.token=sqa_461deb36c6a6df74233a1aa4b3ab01cd9714af56
-EOF
-
-                    # Ejecución del análisis
-                    sonar-scanner
-                else
-                    echo "SonarQube no disponible - Ejecutando análisis simulado"
-                fi
-            '''
-        }
-    }
-}
+sonar.exclusions=backups/**,sonar-scanner-*/**
 ```
-**Propósito**: Análisis de calidad de código con SonarQube
-**Características**:
-- Verificación previa de conectividad
-- Instalación automática de dependencias
-- Configuración dinámica del proyecto
-- Fallback a análisis simulado si SonarQube no está disponible
-**Duración promedio**: 25-30 segundos
 
-### Stage 5: Deploy to Nginx
-```groovy
-stage('Deploy') {
-    steps {
-        echo 'DEPLOY - Desplegando a servidor Nginx'
-        script {
-            sh '''
-                echo "Desplegando aplicación en servidor Nginx..."
-                echo "Archivos preparados para despliegue"
-                echo "Conectando con servidor Nginx en ${NGINX_VM_IP}..."
-                echo "✓ Despliegue completado exitosamente"
-            '''
-        }
-    }
-}
+**Fallback**: Análisis local básico si SonarQube no disponible
+**Duración**: 25-35 segundos
+
+### Stage 5: Deploy
+
+**Propósito**: Despliegue SSH real al servidor nginx
+
+**Proceso**:
+1. Creación de paquete tar.gz con archivos de aplicación
+2. Instalación de sshpass para automatización SSH
+3. Transferencia SCP al servidor nginx
+4. Extracción de archivos en /var/www/html
+5. Recarga del servicio nginx
+
+**Comando SSH ejecutado**:
+```bash
+sshpass -p "${NGINX_PASSWORD}" ssh -o StrictHostKeyChecking=no \
+    ${NGINX_USER}@${NGINX_VM_IP} \
+    "cd /tmp && tar -xzf teclado-app-${BUILD_NUMBER}.tar.gz && \
+     sudo cp -r *.html *.js css/ build-manifest.json ${DEPLOY_DIR}/ && \
+     sudo systemctl reload nginx"
 ```
-**Propósito**: Simula el despliegue a servidor de producción
-**Target**: nginx-machine (68.211.125.160)
-**Duración promedio**: 2-3 segundos
+
+**Duración**: 5-8 segundos
 
 ### Stage 6: Health Check
-```groovy
-stage('Health Check') {
-    steps {
-        echo 'HEALTH CHECK - Verificando aplicación desplegada'
-        script {
-            sh '''
-                echo "Verificando que la aplicación esté funcionando..."
-                echo "✓ Servidor responde correctamente"
-                echo "✓ Aplicación cargando correctamente"
-                echo "✓ Health check completado"
-            '''
-        }
-    }
-}
-```
-**Propósito**: Verificación post-despliegue de la aplicación
-**Validaciones**: Respuesta del servidor, carga de aplicación, servicios funcionando
-**Duración promedio**: 2-3 segundos
 
-## Configuración Docker Compose
+**Propósito**: Verificación HTTP real de la aplicación desplegada
 
-### Servicios Implementados
+**Validaciones**:
+1. **Conectividad HTTP**: curl http://68.211.125.160/ (HTTP 200)
+2. **Contenido de aplicación**: Verificación de "Teclado Virtual"
+3. **Información de build**: Presencia de versión en página
+4. **Recursos CSS/JS**: Accesibilidad de archivos estáticos
 
-#### Jenkins LTS
+**Criterio de fallo**: Pipeline falla si servidor no responde o contenido incorrecto
+**Duración**: 3-5 segundos
+
+## Servicios Docker
+
+### Docker Compose Configuration
+
 ```yaml
-jenkins:
-  image: jenkins/jenkins:lts
-  container_name: jenkins
-  environment:
-    - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
-  user: root
-  ports:
-    - "80:8080"      # Interfaz web Jenkins
-    - "8443:8443"    # Puerto HTTPS alternativo
-    - "50000:50000"  # Puerto para agentes Jenkins
-  volumes:
-    - jenkins-data:/var/jenkins_home
-    - jenkins-home:/home
-    - /var/run/docker.sock:/var/run/docker.sock  # Docker socket para containers
+services:
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: jenkins
+    ports:
+      - "80:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins-data:/var/jenkins_home
+
+  sonarqube:
+    image: sonarqube:10.3-community
+    container_name: sonarqube
+    ports:
+      - "9000:9000"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
 ```
 
-#### SonarQube Community
-```yaml
-sonarqube:
-  image: sonarqube:10.3-community
-  container_name: sonarqube
-  environment:
-    - SONAR_WEB_HOST=0.0.0.0
-    - SONAR_WEB_PORT=9000
-    - SONAR_WEB_CONTEXT=/
-  ports:
-    - "9000:9000"    # Interfaz web SonarQube
-  volumes:
-    - sonarqube_data:/opt/sonarqube/data
-    - sonarqube_logs:/opt/sonarqube/logs
-    - sonarqube_extensions:/opt/sonarqube/extensions
-  restart: unless-stopped
+### Gestión de Servicios
+
+```bash
+# Iniciar servicios
+docker-compose up -d
+
+# Verificar estado
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+# Logs en tiempo real
+docker-compose logs -f jenkins sonarqube
+
+# Reiniciar servicios
+docker-compose restart
 ```
 
-### Volúmenes Persistentes
-- **jenkins-data**: Configuración y datos de Jenkins
-- **jenkins-home**: Directorio home para procesos
-- **sonarqube_data**: Base de datos H2 y configuración de SonarQube
-- **sonarqube_logs**: Logs del sistema SonarQube
-- **sonarqube_extensions**: Plugins y extensiones
+## Configuración Jenkins
 
-## Configuración Ansible
+### Configuración del Pipeline Job
 
-### Inventario (inventory.ini)
+1. **Crear nuevo Pipeline Job**
+2. **Configurar Source Code Management**:
+   - Repository URL: `https://github.com/Lrojas898/ansible-pipeline.git`
+   - Branch: `*/main`
+   - Script Path: `Jenkinsfile`
+
+3. **Configurar Build Triggers**:
+   - Poll SCM: `H/2 * * * *` (cada 2 minutos)
+
+4. **Configurar credenciales SonarQube** en Jenkins
+
+### Credenciales Requeridas
+
+- **SonarQube Token**: `sqa_461deb36c6a6df74233a1aa4b3ab01cd9714af56`
+- **SSH Password**: `DevOps2024!@#`
+- **Usuario SSH**: `adminuser`
+
+## Configuración SonarQube
+
+### Acceso Inicial
+
+- **URL**: http://68.211.125.173:9000
+- **Usuario**: admin
+- **Password**: DevOps123
+
+### Configuración del Proyecto
+
+1. **Crear proyecto**: "Teclado Virtual - Pipeline Real"
+2. **Generar token** para integración con Jenkins
+3. **Configurar Quality Gate** (default funciona)
+
+### Métricas Monitoreadas
+
+- Bugs y vulnerabilidades
+- Code smells
+- Duplicación de código
+- Cobertura (cuando tests estén implementados)
+- Mantenibilidad
+
+## Ansible Automation
+
+### Inventory Configuration
+
 ```ini
 [jenkins_servers]
-jenkins-machine ansible_host=68.211.125.173 ansible_user=adminuser ansible_ssh_pass=DevOps2024!@#
+jenkins-machine ansible_host=68.211.125.173 ansible_user=adminuser
 
 [nginx_servers]
-nginx-machine ansible_host=68.211.125.160 ansible_user=adminuser ansible_ssh_pass=DevOps2024!@#
+nginx-machine ansible_host=68.211.125.160 ansible_user=adminuser
 
 [all:vars]
 ansible_python_interpreter=/usr/bin/python3
 ansible_ssh_common_args='-o StrictHostKeyChecking=no'
 ```
 
-### Playbook Principal (playbook.yml)
+### Playbook Principal
+
+El playbook automatiza la configuración inicial de los servidores:
+
 ```yaml
----
 - name: Configure Jenkins Server
   hosts: jenkins_servers
   become: yes
   tasks:
-    - name: Update system packages
-      apt:
-        update_cache: yes
-        upgrade: dist
+    - name: Install Docker and Docker Compose
+    - name: Configure firewall rules
+    - name: Start Jenkins and SonarQube containers
 
-    - name: Install Docker
-      apt:
-        name: docker.io
-        state: present
-
-    - name: Install Docker Compose
-      pip:
-        name: docker-compose
-        state: present
-
-    - name: Copy docker-compose.yml
-      copy:
-        src: docker-compose.yml
-        dest: /home/adminuser/docker-compose.yml
-
-    - name: Start services
-      docker_compose:
-        project_src: /home/adminuser
-        state: present
+- name: Configure Nginx Server
+  hosts: nginx_servers
+  become: yes
+  tasks:
+    - name: Install and configure Nginx
+    - name: Setup deployment directories
+    - name: Configure SSH access
 ```
 
-## Configuración de Red (nginx.conf)
+## Monitoreo y Troubleshooting
 
-### Nginx Configuration
-Configuración optimizada del servidor web para la aplicación:
+### URLs de Monitoreo
 
-```nginx
-events {
-    worker_connections 1024;
-}
+- **Jenkins Dashboard**: http://68.211.125.173
+- **SonarQube Portal**: http://68.211.125.173:9000
+- **Aplicación Desplegada**: http://68.211.125.160
+- **Build Logs**: Jenkins > Pipeline > Build History
 
-http {
-    include       /etc/nginx/mime.types;
-    default_type  application/octet-stream;
+### Comandos de Diagnóstico
 
-    sendfile        on;
-    keepalive_timeout  65;
-
-    server {
-        listen       80;
-        server_name  localhost;
-
-        location / {
-            root   /usr/share/nginx/html;
-            index  index.html index.htm;
-        }
-
-        error_page   500 502 503 504  /50x.html;
-        location = /50x.html {
-            root   /usr/share/nginx/html;
-        }
-    }
-}
-```
-
-## Variables de Entorno del Pipeline
-
-### Configuración de Servidores
-```groovy
-environment {
-    NGINX_VM_IP = '68.211.125.160'
-    JENKINS_VM_IP = '68.211.125.173'
-    NGINX_USER = 'adminuser'
-    NGINX_PASSWORD = 'DevOps2024!@#'
-    SONAR_HOST_URL = 'http://68.211.125.173:9000'
-    WORKSPACE_APP = '/tmp/teclado-app'
-}
-```
-
-### Credenciales SonarQube
-- **URL**: http://68.211.125.173:9000
-- **Usuario**: admin
-- **Password**: DevOps123
-- **Token**: sqa_461deb36c6a6df74233a1aa4b3ab01cd9714af56
-
-## Problemas Resueltos
-
-### 1. Falla de SonarQube Scanner
-**Problema**: `wget: not found` en contenedor Jenkins
-**Causa**: Imagen base Jenkins LTS no incluye herramientas de descarga
-**Error original**:
-```
-/tmp/jenkins-tmp/hudson-tmp/sonar-scanner.sh: line 15: wget: not found
-```
-**Solución implementada**:
 ```bash
-# Instalación automática durante pipeline
-apt-get update -qq
-apt-get install -y -qq wget unzip openjdk-17-jre-headless
-```
-**Resultado**: Pipeline completamente autocontenido sin dependencias externas
+# Verificar estado de contenedores
+docker ps
 
-### 2. Variables no expandidas en configuración
-**Problema**: URL de SonarQube no se expandía correctamente
-**Error**: `Expected URL scheme 'http' or 'https' but no colon was found`
-**Causa**: Uso de `'EOF'` en heredoc impedía expansión de variables
-**Diagnóstico**: SonarQube Scanner recibía URL vacía
-**Solución**: Cambio a `EOF` sin comillas para permitir expansión de `${SONAR_HOST_URL}`
-**Validación**: Verificación exitosa de conectividad antes del análisis
+# Logs de Jenkins
+docker logs jenkins -f
 
-### 3. Problemas de inicialización SonarQube
-**Problema**: Elasticsearch bootstrap checks y límites de memoria
-**Error**:
-```
-bootstrap check failure [1] of [1]: max virtual memory areas vm.max_map_count [65530]
-is too low, increase to at least [262144]
-```
-**Iteraciones probadas**:
-- SonarQube 9.9 ❌
-- SonarQube 8.9 ❌
-- SonarQube 7.9 ❌
-- SonarQube 6.7 ❌
-**Solución final**: Replicación exacta de configuración funcional (SonarQube 10.3)
-**Lección aprendida**: Importancia de compatibilidad de versiones en recursos limitados
+# Logs de SonarQube
+docker logs sonarqube -f
 
-### 4. Configuración Jenkins inicial
-**Problema**: Jenkins versión 2.387.2 sin plugins Pipeline
-**Error**: Pipeline syntax no reconocida
-**Solución**: Upgrade a `jenkins/jenkins:lts` (2.516.3)
-**Configuración**: `JAVA_OPTS=-Djenkins.install.runSetupWizard=false`
+# Estado del servidor nginx
+ssh adminuser@68.211.125.160 "systemctl status nginx"
+
+# Verificar conectividad
+curl -I http://68.211.125.173
+curl -I http://68.211.125.173:9000
+curl -I http://68.211.125.160
+```
+
+### Problemas Comunes y Soluciones
+
+#### 1. Pipeline falla en Quality Analysis
+**Síntoma**: Error "SonarQube Scanner not found"
+**Causa**: Herramientas no instaladas en contenedor Jenkins
+**Solución**: El pipeline instala automáticamente `wget`, `unzip`, `openjdk-17`
+
+#### 2. Deploy falla con SSH
+**Síntoma**: "Permission denied" en stage Deploy
+**Causa**: Problemas de autenticación SSH
+**Solución**: Verificar credenciales y conectividad de red
+
+#### 3. Health Check falla
+**Síntoma**: HTTP status 000 o timeout
+**Causa**: Servidor nginx no disponible o archivos no desplegados
+**Solución**: Verificar estado de nginx y permisos de archivos
 
 ## Métricas del Pipeline
 
 ### Rendimiento
-- **Tiempo total promedio**: 45 segundos
-- **Stages ejecutados**: 6/6 exitosos
-- **Tasa de éxito**: 100% en ejecuciones recientes
-- **Tiempo por stage**:
-  - Checkout: 2-3s
-  - Build: 4-5s
-  - Test: 3-4s
-  - Quality Analysis: 30-35s (incluye instalación Node.js)
-  - Deploy: 3-4s
-  - Health Check: 3-4s
 
-### Calidad de Código (SonarQube)
-- **Quality Gate**: PASSED ✅
-- **Bugs**: 0
-- **Vulnerabilidades**: 0
-- **Code Smells**: 0
-- **Duplicación**: 0.0%
-- **Líneas de código analizadas**: ~200
-- **Tecnologías soportadas**: HTML, CSS, JavaScript con Node.js engine
+- **Tiempo total promedio**: 45-55 segundos
+- **Tasa de éxito**: 95%+ en ejecuciones estables
+- **Frecuencia de ejecución**: Cada push a main del repo Teclado
 
-## Despliegue y Configuración
+### Distribución de Tiempo por Stage
 
-### Prerrequisitos
-```bash
-# En jenkins-machine
-sudo apt update
-sudo apt install docker.io docker-compose
-sudo usermod -aG docker $USER
+| Stage | Duración Promedio | Porcentaje |
+|-------|------------------|------------|
+| Checkout | 3-5s | 10% |
+| Build | 4-6s | 12% |
+| Test | 3-4s | 8% |
+| Quality Analysis | 25-35s | 60% |
+| Deploy | 5-8s | 14% |
+| Health Check | 3-5s | 8% |
 
-# Ansible (opcional para automatización)
-sudo apt install ansible
-```
+## Integración con Repositorio Teclado
 
-### Ejecución de Servicios
-```bash
-# Iniciar servicios Docker
-docker-compose up -d
+### Trigger del Pipeline
 
-# Verificar estado
-docker ps
+El pipeline monitorea cambios en:
+- **Repositorio**: https://github.com/Lrojas898/Teclado.git
+- **Branch**: main
+- **Polling**: Cada 2 minutos
 
-# Ver logs
-docker-compose logs jenkins
-docker-compose logs sonarqube
-```
+### Archivos Procesados
 
-### Configuración Jenkins
-1. Acceder a http://68.211.125.173
-2. Configurar pipeline apuntando al Jenkinsfile
-3. Configurar credenciales para SonarQube
-4. Ejecutar pipeline
+| Archivo | Procesamiento | Destino |
+|---------|---------------|---------|
+| index.html | Build info injection | /var/www/html/ |
+| script.js | Timestamp append | /var/www/html/ |
+| css/style.css | Minification | /var/www/html/css/ |
+| build-manifest.json | Generated | /var/www/html/ |
 
-### Configuración SonarQube
-1. Acceder a http://68.211.125.173:9000
-2. Login: admin / DevOps123
-3. Crear proyecto: "Teclado Virtual Pipeline"
-4. Generar token de acceso
-5. Configurar Quality Gate
+### Interacción Bidireccional
 
-## URLs de Acceso y Monitoreo
+1. **Push a Teclado** → Trigger pipeline en ansible-pipeline
+2. **Pipeline ejecuta** → Clona, procesa y despliega Teclado
+3. **Aplicación disponible** → http://68.211.125.160
 
-### Servicios Principales
-- **Jenkins Dashboard**: http://68.211.125.173
-- **SonarQube Portal**: http://68.211.125.173:9000
-- **Aplicación Desplegada**: http://68.211.125.160
+## Evolución del Pipeline
 
-### Comandos de Monitoreo
-```bash
-# Estado de contenedores
-docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+### Mejoras Implementadas
 
-# Logs en tiempo real
-docker-compose logs -f
+1. **De simulado a real**: Eliminación de procesos simulados
+2. **SSH deployment**: Despliegue real con transferencia de archivos
+3. **Real health checks**: Verificación HTTP de aplicación
+4. **Error handling**: Fallos reales detienen el pipeline
+5. **Professional logging**: Eliminación de emojis, mensajes corporativos
 
-# Estado de servicios
-systemctl status docker
-curl -s http://localhost:8080/login | grep -q "Jenkins" && echo "Jenkins OK"
-curl -s http://localhost:9000 | grep -q "SonarQube" && echo "SonarQube OK"
-```
+### Próximas Mejoras
 
-## Evolución y Mejoras Futuras
+1. **Parallel stages**: Ejecución paralela de test independientes
+2. **Slack notifications**: Alertas de estado del pipeline
+3. **Rollback mechanism**: Automatización de rollback en fallos
+4. **Performance testing**: Integración con Lighthouse CI
+5. **Security scanning**: OWASP ZAP para análisis de seguridad
 
-### Pipeline Enhancements
-1. **Parallel Stages**: Ejecución paralela de test y build
-2. **Matrix Builds**: Testing en múltiples entornos
-3. **Approval Gates**: Aprobaciones manuales para producción
-4. **Rollback Mechanism**: Automatización de rollback en fallos
-
-### Integración Avanzada
-1. **Slack Notifications**: Notificaciones de estado del pipeline
-2. **JIRA Integration**: Tracking de issues y deployments
-3. **Prometheus Metrics**: Métricas detalladas del pipeline
-4. **Security Scanning**: OWASP ZAP integration
-
-### Ansible Automation
-1. **Dynamic Inventory**: Integración con cloud providers
-2. **Vault Integration**: Gestión segura de credenciales
-3. **Rolling Deployments**: Despliegues sin downtime
-4. **Configuration Drift Detection**: Monitoreo de cambios
-
-Este repositorio demuestra la implementación exitosa de un pipeline CI/CD completo con integración de herramientas DevOps modernas, análisis de calidad automatizado y despliegue eficiente.# Test push to trigger Teclado pipeline - Sun Oct 12 21:41:38 -05 2025
+Este pipeline demuestra la implementación de un flujo CI/CD funcional con herramientas reales de la industria, integrando desarrollo, calidad y operaciones en un proceso automatizado confiable.

@@ -329,12 +329,17 @@ EOF
                         echo "Obteniendo resultados del Quality Gate..."
                         sleep 10  # Esperar procesamiento
 
-                        QUALITY_GATE=$(curl -s "${SONAR_HOST_URL}/api/qualitygates/project_status?projectKey=teclado-virtual-pipeline" -H "Authorization: Bearer ${SONAR_TOKEN}" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
+                        # Obtener status del Quality Gate con mejor parsing
+                        QG_RESPONSE=$(curl -s "${SONAR_HOST_URL}/api/qualitygates/project_status?projectKey=teclado-virtual-pipeline" -H "Authorization: Bearer ${SONAR_TOKEN}")
+                        echo "Respuesta QG: $QG_RESPONSE"
+
+                        QUALITY_GATE=$(echo "$QG_RESPONSE" | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
+                        echo "Quality Gate Status: [$QUALITY_GATE]"
 
                         if [ "$QUALITY_GATE" = "OK" ]; then
                             echo "PASS: QUALITY GATE PASSED"
                         else
-                            echo "FAIL: QUALITY GATE FAILED: $QUALITY_GATE"
+                            echo "FAIL: QUALITY GATE FAILED: [$QUALITY_GATE]"
                             exit 1
                         fi
 
