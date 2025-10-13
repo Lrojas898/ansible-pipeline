@@ -28,6 +28,9 @@ Pipeline CI/CD completo que integra Jenkins con SonarQube para el análisis auto
 
 ### Flujo del Pipeline
 
+<img width="1907" height="962" alt="image" src="https://github.com/user-attachments/assets/f26ffe80-b152-401d-8374-646c96bfe0ba" />
+
+
 ```
 Trigger (Push to main) → Checkout → Build → Test → Quality Analysis → Deploy → Health Check
         ↓                  ↓        ↓       ↓           ↓            ↓         ↓
@@ -52,6 +55,9 @@ ansible-pipeline/
 ## Pipeline Jenkins - Implementación Real
 
 ### Configuración del Pipeline
+
+<img width="1912" height="967" alt="image" src="https://github.com/user-attachments/assets/45f74d94-01a8-4e23-ad4b-6ea79ffb7cea" />
+
 
 El pipeline se activa automáticamente mediante polling SCM cada 2 minutos:
 
@@ -143,7 +149,9 @@ Porcentaje éxito: 100%
 
 ### Stage 4: Quality Analysis
 
-**Propósito**: Análisis real con SonarQube Scanner
+<img width="1915" height="966" alt="image" src="https://github.com/user-attachments/assets/3132937d-f768-44d6-a342-c48d15472de5" />
+
+**Propósito**: Análisis con SonarQube Scanner
 
 **Proceso**:
 1. Verificación HTTP de conectividad con SonarQube
@@ -163,10 +171,11 @@ sonar.inclusions=**/*.html,**/*.js,**/*.css
 sonar.exclusions=backups/**,sonar-scanner-*/**
 ```
 
-**Fallback**: Análisis local básico si SonarQube no disponible
+**Fallback**: Análisis local  si SonarQube no disponible
 **Duración**: 25-35 segundos
 
 ### Stage 5: Deploy
+<img width="1911" height="1042" alt="image" src="https://github.com/user-attachments/assets/c231a498-baa9-4bae-bc8d-13bbecaa01fe" />
 
 **Propósito**: Despliegue SSH real al servidor nginx
 
