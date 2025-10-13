@@ -28,7 +28,7 @@ Pipeline CI/CD completo que integra Jenkins con SonarQube para el análisis auto
 
 ### Flujo del Pipeline
 
-<img width="1907" height="962" alt="image" src="https://github.com/user-attachments/assets/f26ffe80-b152-401d-8374-646c96bfe0ba" />
+<img width="1910" height="1041" alt="image" src="https://github.com/user-attachments/assets/e0f6808e-3ac6-4c87-8636-b48b23eae64d" />
 
 
 ```
