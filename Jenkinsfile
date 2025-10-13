@@ -27,7 +27,8 @@ pipeline {
         DEPLOY_DIR = '/var/www/html'
 
         // Configuración de build
-        BUILD_TIMESTAMP = sh(script: 'date "+%Y-%m-%d %H:%M:%S"', returnStdout: true).trim()
+        BUILD_TIMESTAMP = sh(script: 'date "+%Y-%m-%d_%H:%M:%S"', returnStdout: true).trim()
+        BUILD_DATE = sh(script: 'date "+%Y-%m-%d %H:%M:%S"', returnStdout: true).trim()
         APP_VERSION = "v1.0.${BUILD_NUMBER}"
     }
 
@@ -95,22 +96,34 @@ pipeline {
 
                     # Agregar banner de información de build
                     if ! grep -q "build-info" index.html; then
-                        # Insertar después de <body>
-                        sed -i '/<body>/a\\
-<div class="build-info" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; margin: 10px 0; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">\\
-    <h3 style="margin: 0 0 10px 0;">🚀 Build Information</h3>\\
-    <p style="margin: 5px 0;"><strong>Version:</strong> '${APP_VERSION}'</p>\\
-    <p style="margin: 5px 0;"><strong>Build:</strong> #'${BUILD_NUMBER}'</p>\\
-    <p style="margin: 5px 0;"><strong>Timestamp:</strong> '${BUILD_TIMESTAMP}'</p>\\
-    <p style="margin: 5px 0;"><strong>Pipeline:</strong> Jenkins → SonarQube → Deploy</p>\\
-</div>' index.html
+                        # Crear el contenido HTML en un archivo temporal
+                        cat > build_info.html << 'BUILD_EOF'
+<div class="build-info" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; margin: 10px 0; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+    <h3 style="margin: 0 0 10px 0;">🚀 Build Information</h3>
+    <p style="margin: 5px 0;"><strong>Version:</strong> VERSION_PLACEHOLDER</p>
+    <p style="margin: 5px 0;"><strong>Build:</strong> #BUILD_PLACEHOLDER</p>
+    <p style="margin: 5px 0;"><strong>Timestamp:</strong> TIMESTAMP_PLACEHOLDER</p>
+    <p style="margin: 5px 0;"><strong>Pipeline:</strong> Jenkins + SonarQube + Deploy</p>
+</div>
+BUILD_EOF
+
+                        # Reemplazar placeholders con valores reales
+                        sed -i "s/VERSION_PLACEHOLDER/${APP_VERSION}/g" build_info.html
+                        sed -i "s/BUILD_PLACEHOLDER/${BUILD_NUMBER}/g" build_info.html
+                        sed -i "s|TIMESTAMP_PLACEHOLDER|${BUILD_DATE}|g" build_info.html
+
+                        # Insertar el contenido después de <body>
+                        sed -i '/<body>/r build_info.html' index.html
+
+                        # Limpiar archivo temporal
+                        rm build_info.html
                     fi
 
                     # Minificar CSS (eliminando comentarios y espacios extra)
                     find css -name "*.css" -exec sh -c 'sed "/^[[:space:]]*\\/\\*/,/\\*\\//d; /^[[:space:]]*$/d" "$1" > "$1.tmp" && mv "$1.tmp" "$1"' _ {} \\;
 
                     # Agregar timestamp al JavaScript
-                    echo "console.log('App built at: ${BUILD_TIMESTAMP}');" >> script.js
+                    echo "console.log('App built at: ${BUILD_DATE}');" >> script.js
                     echo "console.log('Version: ${APP_VERSION}');" >> script.js
 
                     # Crear archivo de manifiesto del build
@@ -119,6 +132,7 @@ pipeline {
     "version": "${APP_VERSION}",
     "build_number": "${BUILD_NUMBER}",
     "build_timestamp": "${BUILD_TIMESTAMP}",
+    "build_date": "${BUILD_DATE}",
     "pipeline": "jenkins",
     "environment": "production"
 }
@@ -250,7 +264,7 @@ EOF
     "tests_passed": $TESTS_PASSED,
     "tests_failed": $((TESTS_TOTAL - TESTS_PASSED)),
     "success_rate": $(( TESTS_PASSED * 100 / TESTS_TOTAL )),
-    "timestamp": "${BUILD_TIMESTAMP}"
+    "timestamp": "${BUILD_DATE}"
 }
 EOF
 
@@ -442,7 +456,7 @@ EOF
                     echo "=== HEALTH CHECK COMPLETADO ==="
                     echo "🎉 Aplicación funcionando en: http://${NGINX_VM_IP}"
                     echo "📊 Version desplegada: ${APP_VERSION}"
-                    echo "⏰ Timestamp: ${BUILD_TIMESTAMP}"
+                    echo "⏰ Timestamp: ${BUILD_DATE}"
                 '''
             }
         }
