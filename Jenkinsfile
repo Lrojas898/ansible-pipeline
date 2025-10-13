@@ -35,7 +35,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo "🔄 CHECKOUT - Clonando repositorio Teclado"
+                echo "CHECKOUT - Clonando repositorio Teclado"
 
                 // Checkout REAL del repositorio Teclado
                 checkout([$class: 'GitSCM',
@@ -69,7 +69,7 @@ pipeline {
 
         stage('Build') {
             steps {
-                echo "🔨 BUILD - Procesando aplicación Teclado Virtual"
+                echo "BUILD - Procesando aplicación Teclado Virtual"
 
                 sh '''
                     cd ${WORKSPACE_APP}
@@ -77,13 +77,13 @@ pipeline {
 
                     # Verificar archivos del repositorio
                     if [ ! -f "index.html" ] || [ ! -f "script.js" ] || [ ! -d "css" ]; then
-                        echo "❌ ERROR: Archivos requeridos no encontrados"
+                        echo "ERROR: Archivos requeridos no encontrados"
                         echo "Archivos disponibles:"
                         ls -la
                         exit 1
                     fi
 
-                    echo "✅ Archivos fuente verificados"
+                    echo "SUCCESS: Archivos fuente verificados"
 
                     # Crear backup de archivos originales
                     mkdir -p backups
@@ -99,7 +99,7 @@ pipeline {
                         # Crear el contenido HTML en un archivo temporal
                         cat > build_info.html << 'BUILD_EOF'
 <div class="build-info" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; margin: 10px 0; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-    <h3 style="margin: 0 0 10px 0;">🚀 Build Information</h3>
+    <h3 style="margin: 0 0 10px 0;">BUILD INFORMATION</h3>
     <p style="margin: 5px 0;"><strong>Version:</strong> VERSION_PLACEHOLDER</p>
     <p style="margin: 5px 0;"><strong>Build:</strong> #BUILD_PLACEHOLDER</p>
     <p style="margin: 5px 0;"><strong>Timestamp:</strong> TIMESTAMP_PLACEHOLDER</p>
@@ -148,7 +148,7 @@ EOF
 
         stage('Test') {
             steps {
-                echo "🧪 TEST - Ejecutando pruebas funcionales REALES"
+                echo "TEST - Ejecutando pruebas funcionales REALES"
 
                 sh '''
                     cd ${WORKSPACE_APP}
@@ -162,10 +162,10 @@ EOF
                     TESTS_TOTAL=$((TESTS_TOTAL + 1))
                     echo "Test 1: Verificando estructura de archivos..."
                     if [ -f "index.html" ] && [ -f "script.js" ] && [ -d "css" ] && [ -f "css/style.css" ]; then
-                        echo "✅ Test 1 PASSED: Estructura de archivos correcta"
+                        echo "PASS: Test 1 - Estructura de archivos correcta"
                         TESTS_PASSED=$((TESTS_PASSED + 1))
                     else
-                        echo "❌ Test 1 FAILED: Estructura de archivos incorrecta"
+                        echo "FAIL: Test 1 - Estructura de archivos incorrecta"
                         ls -la
                     fi
 
@@ -176,38 +176,38 @@ EOF
 
                     # Verificar DOCTYPE
                     if ! grep -q "<!DOCTYPE html>" index.html; then
-                        echo "❌ DOCTYPE HTML5 faltante"
+                        echo "ERROR: DOCTYPE HTML5 faltante"
                         HTML_ERRORS=$((HTML_ERRORS + 1))
                     fi
 
                     # Verificar charset
                     if ! grep -q "charset" index.html; then
-                        echo "❌ Charset no especificado"
+                        echo "ERROR: Charset no especificado"
                         HTML_ERRORS=$((HTML_ERRORS + 1))
                     fi
 
                     # Verificar title
                     if ! grep -q "<title>.*</title>" index.html; then
-                        echo "❌ Title faltante"
+                        echo "ERROR: Title faltante"
                         HTML_ERRORS=$((HTML_ERRORS + 1))
                     fi
 
                     # Verificar enlaces a CSS y JS
                     if ! grep -q "style.css" index.html; then
-                        echo "❌ Enlace a CSS faltante"
+                        echo "ERROR: Enlace a CSS faltante"
                         HTML_ERRORS=$((HTML_ERRORS + 1))
                     fi
 
                     if ! grep -q "script.js" index.html; then
-                        echo "❌ Enlace a JS faltante"
+                        echo "ERROR: Enlace a JS faltante"
                         HTML_ERRORS=$((HTML_ERRORS + 1))
                     fi
 
                     if [ $HTML_ERRORS -eq 0 ]; then
-                        echo "✅ Test 2 PASSED: HTML válido"
+                        echo "PASS: Test 2 - HTML válido"
                         TESTS_PASSED=$((TESTS_PASSED + 1))
                     else
-                        echo "❌ Test 2 FAILED: $HTML_ERRORS errores en HTML"
+                        echo "FAIL: Test 2 - $HTML_ERRORS errores en HTML"
                     fi
 
                     # Test 3: Validación CSS
@@ -216,13 +216,13 @@ EOF
                     if [ -s "css/style.css" ]; then
                         # Verificar sintaxis CSS básica
                         if grep -q "{" css/style.css && grep -q "}" css/style.css; then
-                            echo "✅ Test 3 PASSED: CSS tiene sintaxis válida"
+                            echo "PASS: Test 3 - CSS tiene sintaxis válida"
                             TESTS_PASSED=$((TESTS_PASSED + 1))
                         else
-                            echo "❌ Test 3 FAILED: CSS con sintaxis incorrecta"
+                            echo "FAIL: Test 3 - CSS con sintaxis incorrecta"
                         fi
                     else
-                        echo "❌ Test 3 FAILED: CSS vacío o faltante"
+                        echo "FAIL: Test 3 - CSS vacío o faltante"
                     fi
 
                     # Test 4: Validación JavaScript
@@ -231,23 +231,23 @@ EOF
                     if [ -s "script.js" ]; then
                         # Verificar que no tenga errores de sintaxis básicos
                         if grep -q "function\\|console\\|var\\|let\\|const\\|=" script.js; then
-                            echo "✅ Test 4 PASSED: JavaScript contiene código válido"
+                            echo "PASS: Test 4 - JavaScript contiene código válido"
                             TESTS_PASSED=$((TESTS_PASSED + 1))
                         else
-                            echo "❌ Test 4 FAILED: JavaScript parece vacío o inválido"
+                            echo "FAIL: Test 4 - JavaScript parece vacío o inválido"
                         fi
                     else
-                        echo "❌ Test 4 FAILED: JavaScript vacío o faltante"
+                        echo "FAIL: Test 4 - JavaScript vacío o faltante"
                     fi
 
                     # Test 5: Verificar información de build
                     TESTS_TOTAL=$((TESTS_TOTAL + 1))
                     echo "Test 5: Verificando información de build..."
                     if grep -q "${APP_VERSION}" index.html && [ -f "build-manifest.json" ]; then
-                        echo "✅ Test 5 PASSED: Información de build presente"
+                        echo "PASS: Test 5 - Información de build presente"
                         TESTS_PASSED=$((TESTS_PASSED + 1))
                     else
-                        echo "❌ Test 5 FAILED: Información de build faltante"
+                        echo "FAIL: Test 5 - Información de build faltante"
                     fi
 
                     # Generar reporte de tests
@@ -270,9 +270,9 @@ EOF
 
                     # Fallar si no todos los tests pasaron
                     if [ $TESTS_PASSED -eq $TESTS_TOTAL ]; then
-                        echo "🎉 TODOS LOS TESTS PASARON"
+                        echo "SUCCESS: TODOS LOS TESTS PASARON"
                     else
-                        echo "💥 TESTS FALLARON - Pipeline detenido"
+                        echo "ERROR: TESTS FALLARON - Pipeline detenido"
                         exit 1
                     fi
                 '''
@@ -281,7 +281,7 @@ EOF
 
         stage('Quality Analysis') {
             steps {
-                echo "📊 QUALITY ANALYSIS - Análisis REAL con SonarQube"
+                echo "QUALITY ANALYSIS - Análisis REAL con SonarQube"
 
                 sh '''
                     cd ${WORKSPACE_APP}
@@ -292,7 +292,7 @@ EOF
                     SONAR_STATUS=$(curl -s -w "%{http_code}" ${SONAR_HOST_URL}/api/system/status -o /tmp/sonar_response.json || echo "000")
 
                     if [ "$SONAR_STATUS" = "200" ]; then
-                        echo "✅ SonarQube disponible - Ejecutando análisis REAL"
+                        echo "SUCCESS: SonarQube disponible - Ejecutando análisis REAL"
 
                         # Instalar herramientas necesarias si no están disponibles
                         if ! command -v wget >/dev/null 2>&1; then
@@ -332,14 +332,14 @@ EOF
                         QUALITY_GATE=$(curl -s "${SONAR_HOST_URL}/api/qualitygates/project_status?projectKey=teclado-virtual-pipeline" -H "Authorization: Bearer ${SONAR_TOKEN}" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
 
                         if [ "$QUALITY_GATE" = "OK" ]; then
-                            echo "✅ QUALITY GATE PASSED"
+                            echo "PASS: QUALITY GATE PASSED"
                         else
-                            echo "❌ QUALITY GATE FAILED: $QUALITY_GATE"
+                            echo "FAIL: QUALITY GATE FAILED: $QUALITY_GATE"
                             exit 1
                         fi
 
                     else
-                        echo "⚠️  SonarQube no disponible (HTTP: $SONAR_STATUS)"
+                        echo "WARNING: SonarQube no disponible (HTTP: $SONAR_STATUS)"
                         echo "Ejecutando análisis local básico..."
 
                         # Análisis local si SonarQube no está disponible
@@ -352,7 +352,7 @@ EOF
                         echo "Archivos CSS: $CSS_FILES"
                         echo "Líneas totales de código: $(find . -name "*.html" -o -name "*.js" -o -name "*.css" -exec wc -l {} + | tail -1 | awk '{print $1}')"
 
-                        echo "✅ Análisis local completado"
+                        echo "SUCCESS: Análisis local completado"
                     fi
 
                     echo "=== ANÁLISIS DE CALIDAD COMPLETADO ==="
@@ -362,7 +362,7 @@ EOF
 
         stage('Deploy') {
             steps {
-                echo "🚀 DEPLOY - Desplegando REAL a servidor Nginx"
+                echo "DEPLOY - Desplegando REAL a servidor Nginx"
 
                 sh '''
                     cd ${WORKSPACE_APP}
@@ -392,7 +392,7 @@ EOF
                         ${NGINX_USER}@${NGINX_VM_IP} \\
                         "cd /tmp && tar -xzf teclado-app-${BUILD_NUMBER}.tar.gz && sudo cp -r *.html *.js css/ build-manifest.json ${DEPLOY_DIR}/ && sudo systemctl reload nginx"
 
-                    echo "✅ DEPLOY COMPLETADO"
+                    echo "SUCCESS: DEPLOY COMPLETADO"
                     echo "Aplicación desplegada en: http://${NGINX_VM_IP}"
                 '''
             }
@@ -400,7 +400,7 @@ EOF
 
         stage('Health Check') {
             steps {
-                echo "❤️ HEALTH CHECK - Verificación REAL de la aplicación"
+                echo "HEALTH CHECK - Verificación REAL de la aplicación"
 
                 sh '''
                     echo "=== VERIFICACIÓN DE SALUD REAL ==="
@@ -413,9 +413,9 @@ EOF
                     HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://${NGINX_VM_IP}/ || echo "000")
 
                     if [ "$HTTP_STATUS" = "200" ]; then
-                        echo "✅ Servidor responde correctamente (HTTP 200)"
+                        echo "SUCCESS: Servidor responde correctamente (HTTP 200)"
                     else
-                        echo "❌ Servidor no responde correctamente (HTTP: $HTTP_STATUS)"
+                        echo "ERROR: Servidor no responde correctamente (HTTP: $HTTP_STATUS)"
                         exit 1
                     fi
 
@@ -424,17 +424,17 @@ EOF
                     CONTENT=$(curl -s http://${NGINX_VM_IP}/ || echo "")
 
                     if echo "$CONTENT" | grep -q "Teclado Virtual"; then
-                        echo "✅ Aplicación carga correctamente"
+                        echo "SUCCESS: Aplicación carga correctamente"
                     else
-                        echo "❌ Aplicación no carga el contenido esperado"
+                        echo "ERROR: Aplicación no carga el contenido esperado"
                         exit 1
                     fi
 
                     # Verificar información de build en la página
                     if echo "$CONTENT" | grep -q "${APP_VERSION}"; then
-                        echo "✅ Información de build presente en la página"
+                        echo "SUCCESS: Información de build presente en la página"
                     else
-                        echo "⚠️  Información de build no visible"
+                        echo "WARNING: Información de build no visible"
                     fi
 
                     # Verificar archivos CSS y JS
@@ -442,20 +442,20 @@ EOF
                     JS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://${NGINX_VM_IP}/script.js || echo "000")
 
                     if [ "$CSS_STATUS" = "200" ]; then
-                        echo "✅ Archivo CSS accesible"
+                        echo "SUCCESS: Archivo CSS accesible"
                     else
-                        echo "⚠️  Archivo CSS no accesible (HTTP: $CSS_STATUS)"
+                        echo "WARNING: Archivo CSS no accesible (HTTP: $CSS_STATUS)"
                     fi
 
                     if [ "$JS_STATUS" = "200" ]; then
-                        echo "✅ Archivo JavaScript accesible"
+                        echo "SUCCESS: Archivo JavaScript accesible"
                     else
-                        echo "⚠️  Archivo JavaScript no accesible (HTTP: $JS_STATUS)"
+                        echo "WARNING: Archivo JavaScript no accesible (HTTP: $JS_STATUS)"
                     fi
 
                     echo "=== HEALTH CHECK COMPLETADO ==="
-                    echo "🎉 Aplicación funcionando en: http://${NGINX_VM_IP}"
-                    echo "📊 Version desplegada: ${APP_VERSION}"
+                    echo "SUCCESS: Aplicación funcionando en: http://${NGINX_VM_IP}"
+                    echo "INFO: Version desplegada: ${APP_VERSION}"
                     echo "⏰ Timestamp: ${BUILD_DATE}"
                 '''
             }
@@ -464,15 +464,15 @@ EOF
 
     post {
         always {
-            echo '📝 Pipeline finalizado - Generando reporte'
+            echo 'Pipeline finalizado - Generando reporte'
 
             sh '''
                 echo "=== REPORTE FINAL DEL PIPELINE ==="
-                echo "🏗️  Build: ${BUILD_NUMBER}"
-                echo "📦 Versión: ${APP_VERSION}"
-                echo "⏰ Timestamp: ${BUILD_TIMESTAMP}"
-                echo "🌐 URL aplicación: http://${NGINX_VM_IP}"
-                echo "📊 SonarQube: ${SONAR_HOST_URL}/projects"
+                echo "Build: ${BUILD_NUMBER}"
+                echo "Versión: ${APP_VERSION}"
+                echo "Timestamp: ${BUILD_TIMESTAMP}"
+                echo "URL aplicación: http://${NGINX_VM_IP}"
+                echo "SonarQube: ${SONAR_HOST_URL}/projects"
                 echo "=== FIN DEL REPORTE ==="
             '''
 
@@ -481,38 +481,38 @@ EOF
         }
 
         success {
-            echo '✅ Pipeline ejecutado EXITOSAMENTE'
+            echo 'SUCCESS: Pipeline ejecutado EXITOSAMENTE'
 
             sh '''
-                echo "🎊 DEPLOY EXITOSO!"
+                echo "SUCCESS: DEPLOY EXITOSO!"
                 echo "La aplicación Teclado Virtual está funcionando en:"
-                echo "👉 http://${NGINX_VM_IP}"
+                echo "URL: http://${NGINX_VM_IP}"
                 echo ""
-                echo "📈 Métricas del build:"
-                echo "   • Version: ${APP_VERSION}"
-                echo "   • Pipeline duration: Completado"
-                echo "   • Quality Gate: PASSED"
-                echo "   • Health Check: PASSED"
+                echo "Métricas del build:"
+                echo "   - Version: ${APP_VERSION}"
+                echo "   - Pipeline duration: Completado"
+                echo "   - Quality Gate: PASSED"
+                echo "   - Health Check: PASSED"
             '''
         }
 
         failure {
-            echo '❌ Pipeline FALLÓ'
+            echo 'ERROR: Pipeline FALLÓ'
 
             sh '''
-                echo "💥 PIPELINE FALLÓ EN ALGÚN STAGE"
+                echo "ERROR: PIPELINE FALLÓ EN ALGÚN STAGE"
                 echo "Revisa los logs para identificar el problema"
                 echo "Stages típicos de fallo:"
-                echo "   • Build: Archivos faltantes"
-                echo "   • Test: Validaciones fallidas"
-                echo "   • Quality: SonarQube issues"
-                echo "   • Deploy: Problemas de conectividad SSH"
-                echo "   • Health Check: Servidor no responde"
+                echo "   - Build: Archivos faltantes"
+                echo "   - Test: Validaciones fallidas"
+                echo "   - Quality: SonarQube issues"
+                echo "   - Deploy: Problemas de conectividad SSH"
+                echo "   - Health Check: Servidor no responde"
             '''
         }
 
         unstable {
-            echo '⚠️ Pipeline completado con ADVERTENCIAS'
+            echo 'WARNING: Pipeline completado con ADVERTENCIAS'
         }
     }
 }
