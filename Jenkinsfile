@@ -62,7 +62,7 @@ pipeline {
                         # Copiar archivos del repositorio Teclado clonado
                         echo "Copiando archivos de la aplicacion Teclado desde repositorio"
                         # Excluir .git y archivos ocultos innecesarios
-                        find ${WORKSPACE} -maxdepth 1 -type f -exec cp {} ${WORKSPACE_APP}/ \;
+                        find ${WORKSPACE} -maxdepth 1 -type f -exec cp {} ${WORKSPACE_APP}/ \\;
                         if [ -d "${WORKSPACE}/css" ]; then
                             cp -r ${WORKSPACE}/css ${WORKSPACE_APP}/
                         fi
